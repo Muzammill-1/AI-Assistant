@@ -53,14 +53,19 @@ import {
   ChevronRightIcon,
   CopyIcon,
   DownloadIcon,
+  FileCode2Icon,
+  FolderGit2Icon,
+  LightbulbIcon,
   MicIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PhoneIcon,
   RefreshCwIcon,
+  SparklesIcon,
   SquareIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
+  WrenchIcon,
 } from "lucide-react";
 import {
   createContext,
@@ -68,19 +73,11 @@ import {
   type ComponentType,
   type FC,
   type PropsWithChildren,
+  type ReactNode,
 } from "react";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 
-/**
- * Optional component overrides for the thread. `AssistantMessage` and
- * `Welcome` replace whole sections; the remaining slots override how the
- * assistant message renders tool calls and part groups. Tool UIs registered
- * by name (toolkit `render`, `useAssistantDataUI`) take precedence over
- * `ToolFallback`. When `TaskGroup` is set, tool calls that carry a nested
- * conversation and have no registered UI render through it instead of the
- * tool group; without it they render like any other tool call.
- */
 export type ThreadComponents = {
   AssistantMessage?: ComponentType | undefined;
   Welcome?: ComponentType | undefined;
@@ -116,6 +113,7 @@ const taskAwareGroupBy = (
   context?: Parameters<typeof messageGroupBy>[1],
 ): readonly ThreadGroupKey[] => {
   const path = messageGroupBy(part, context);
+
   return part.type === "tool-call" &&
     part.messages !== undefined &&
     path.length > 0 &&
@@ -134,13 +132,10 @@ const EMPTY_COMPONENTS: ThreadComponents = {};
 const ThreadComponentsContext =
   createContext<ThreadComponents>(EMPTY_COMPONENTS);
 
-// Startup exposes a loading placeholder thread; treat it as a new chat so
-// the composer mounts centered. Loads after startup keep the docked layout.
 const isNewChatView = (s: AssistantState) =>
   s.thread.messages.length === 0 &&
   (!s.thread.isLoading || s.threads.isLoading);
 
-// A switched thread that is still fetching its history: skeleton, not welcome.
 const isHistoryLoadingView = (s: AssistantState) =>
   s.thread.messages.length === 0 &&
   s.thread.isLoading &&
@@ -151,17 +146,30 @@ const ThreadHistorySkeleton: FC = () => (
   <div
     data-slot="aui_thread-history-skeleton"
     role="status"
-    className="animate-in fade-in fill-mode-both flex flex-col gap-y-6 [animation-delay:150ms] [animation-duration:200ms]"
+    className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-8 px-4 py-8 sm:px-5 md:px-6"
   >
     <span className="sr-only">Loading conversation</span>
-    <Skeleton className="ml-auto h-9 w-2/5 rounded-xl motion-reduce:animate-none" />
-    <div className="flex flex-col gap-y-2">
+
+    <div className="ml-auto w-full max-w-md space-y-2">
+      <Skeleton className="ml-auto h-11 w-3/4 rounded-2xl motion-reduce:animate-none" />
+    </div>
+
+    <div className="flex max-w-2xl flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-7 w-7 rounded-lg motion-reduce:animate-none" />
+        <Skeleton className="h-3 w-24 motion-reduce:animate-none" />
+      </div>
+
+      <Skeleton className="h-4 w-full motion-reduce:animate-none" />
       <Skeleton className="h-4 w-11/12 motion-reduce:animate-none" />
-      <Skeleton className="h-4 w-4/5 motion-reduce:animate-none" />
       <Skeleton className="h-4 w-3/5 motion-reduce:animate-none" />
     </div>
-    <Skeleton className="ml-auto h-9 w-1/3 rounded-xl motion-reduce:animate-none" />
-    <div className="flex flex-col gap-y-2">
+
+    <div className="ml-auto w-full max-w-sm">
+      <Skeleton className="ml-auto h-11 w-2/3 rounded-2xl motion-reduce:animate-none" />
+    </div>
+
+    <div className="flex max-w-xl flex-col gap-3">
       <Skeleton className="h-4 w-10/12 motion-reduce:animate-none" />
       <Skeleton className="h-4 w-2/3 motion-reduce:animate-none" />
     </div>
@@ -189,11 +197,11 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 
   return (
     <ThreadPrimitive.Root
-      className="aui-root aui-thread-root bg-background @container flex h-full flex-col"
+      className="aui-root aui-thread-root bg-background @container flex h-full min-h-0 flex-col"
       style={{
-        ["--thread-max-width" as string]: "44rem",
+        ["--thread-max-width" as string]: "48rem",
         ["--composer-bg" as string]:
-          "color-mix(in oklab, var(--color-muted) 30%, transparent)",
+          "color-mix(in oklab, var(--color-muted) 35%, transparent)",
         ["--composer-radius" as string]: "1rem",
         ["--composer-padding" as string]: "8px",
       }}
@@ -201,24 +209,25 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
       <ThreadPrimitive.Viewport
         turnAnchor="top"
         data-slot="aui_thread-viewport"
-        className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth"
+        className="relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scroll-smooth"
       >
         <div
           className={cn(
-            "mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4",
+            "mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-6 sm:px-5 md:px-6",
             isEmpty && "justify-center",
           )}
         >
           <AuiIf condition={isNewChatView}>
             <Welcome />
           </AuiIf>
+
           <AuiIf condition={isHistoryLoadingView}>
             <ThreadHistorySkeleton />
           </AuiIf>
 
           <div
             data-slot="aui_message-group"
-            className="mb-14 flex flex-col gap-y-6 empty:hidden"
+            className="mb-14 flex flex-col gap-y-8 empty:hidden"
           >
             <ThreadPrimitive.Messages>
               {() => <ThreadMessage />}
@@ -227,14 +236,17 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 
           <ThreadPrimitive.ViewportFooter
             className={cn(
-              "aui-thread-viewport-footer bg-background flex flex-col gap-4 overflow-visible pb-4 md:pb-6",
+              "aui-thread-viewport-footer bg-background flex flex-col gap-3 overflow-visible pb-4 md:pb-6",
               !isEmpty &&
-                "sticky bottom-0 mt-auto rounded-t-(--composer-radius)",
+                "sticky bottom-0 mt-auto rounded-t-[var(--composer-radius)]",
             )}
           >
             <ThreadScrollToBottom />
+
             <ThreadFollowupSuggestions />
+
             <Composer autoFocus={autoFocus} />
+
             <AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
               <ThreadSuggestions />
             </AuiIf>
@@ -248,6 +260,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 const ThreadMessage: FC = () => {
   const { AssistantMessage: AssistantMessageComponent = AssistantMessage } =
     useContext(ThreadComponentsContext);
+
   const role = useAuiState((s) => s.message.role);
   const isEditing = useAuiState((s) => s.message.composer.isEditing);
   const isSpoken = useAuiState((s) => s.message.metadata.modality === "voice");
@@ -255,6 +268,7 @@ const ThreadMessage: FC = () => {
   if (isEditing) return <EditComposer />;
   if (isSpoken) return <SpokenMessage />;
   if (role === "user") return <UserMessage />;
+
   return <AssistantMessageComponent />;
 };
 
@@ -264,23 +278,29 @@ const useVoiceRunPosition = (): VoiceRunPosition =>
   useAuiState((s) => {
     const before =
       s.thread.messages[s.message.index - 1]?.metadata.modality === "voice";
+
     const after =
       s.thread.messages[s.message.index + 1]?.metadata.modality === "voice";
+
     if (before) return after ? "middle" : "end";
+
     return after ? "start" : "single";
   });
 
 const SpokenText: TextMessagePartComponent = ({ text }) => (
-  <p className="aui-spoken-message-text m-0">{text}</p>
+  <p className="m-0">{text}</p>
 );
 
 const SpokenMessage: FC = () => {
   const role = useAuiState((s) => s.message.role);
   const position = useVoiceRunPosition();
+
   const isSpeaking = useAuiState(
     (s) =>
-      s.message.role === "assistant" && s.message.status?.type === "running",
+      s.message.role === "assistant" &&
+      s.message.status?.type === "running",
   );
+
   const opensExchange = position === "start" || position === "single";
 
   return (
@@ -289,49 +309,47 @@ const SpokenMessage: FC = () => {
       data-role={role}
       data-voice-run={position}
       className={cn(
-        "aui-spoken-message bg-muted/40 mx-2 px-3 py-1.5 [contain-intrinsic-size:auto_48px] [content-visibility:auto]",
-        position === "single" && "rounded-xl py-2",
+        "aui-spoken-message mx-2 bg-muted/40 px-3 py-2 [contain-intrinsic-size:auto_48px] [content-visibility:auto]",
+        position === "single" && "rounded-xl",
         position === "start" && "rounded-t-xl pt-2",
         position === "middle" && "-mt-6",
         position === "end" && "-mt-6 rounded-b-xl pb-2",
       )}
     >
       {opensExchange && (
-        <div
-          data-slot="aui_spoken-exchange-header"
-          className="text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs"
-        >
+        <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
           <PhoneIcon className="size-3" aria-hidden />
           <span>Voice conversation</span>
         </div>
       )}
-      <div
-        data-slot="aui_spoken-message-content"
-        className="text-foreground flex items-start gap-2 text-sm leading-relaxed"
-      >
-        <span className="text-muted-foreground mt-1 shrink-0" aria-hidden>
+
+      <div className="flex items-start gap-2 text-sm leading-relaxed text-foreground">
+        <span className="mt-1 shrink-0 text-muted-foreground" aria-hidden>
           {role === "user" ? (
             <MicIcon className="size-3.5" />
           ) : (
             <AudioLinesIcon className="size-3.5" />
           )}
         </span>
+
         <span className="sr-only">
           {role === "user" ? "You said" : "Assistant said"}
         </span>
-        <div className="min-w-0 flex-1 wrap-break-word">
+
+        <div className="min-w-0 flex-1 break-words">
           <MessagePrimitive.Parts components={{ Text: SpokenText }} />
+
           {isSpeaking && (
             <span
-              data-slot="aui_spoken-message-indicator"
               role="status"
-              className="text-muted-foreground ms-1 animate-pulse font-sans"
+              className="ms-1 animate-pulse text-muted-foreground"
               aria-label="Assistant is speaking"
             >
               ●
             </span>
           )}
         </div>
+
         <SpokenActionBar />
       </div>
     </MessagePrimitive.Root>
@@ -343,36 +361,122 @@ const SpokenActionBar: FC = () => {
     <ActionBarPrimitive.Root
       hideWhenRunning
       autohide="always"
-      className="aui-spoken-action-bar text-muted-foreground flex shrink-0 gap-1"
+      className="flex shrink-0 gap-1 text-muted-foreground"
     >
-      <ActionBarPrimitive.Copy render={<TooltipIconButton tooltip="Copy" className="size-6" />}><AuiIf condition={(s) => s.message.isCopied}>
-                      <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
-                    </AuiIf><AuiIf condition={(s) => !s.message.isCopied}>
-                      <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
-                    </AuiIf></ActionBarPrimitive.Copy>
+      <ActionBarPrimitive.Copy
+        render={
+          <TooltipIconButton
+            tooltip="Copy"
+            className="size-7 rounded-md"
+          />
+        }
+      >
+        <AuiIf condition={(s) => s.message.isCopied}>
+          <CheckIcon className="size-3.5 animate-in zoom-in-50 fade-in duration-200" />
+        </AuiIf>
+
+        <AuiIf condition={(s) => !s.message.isCopied}>
+          <CopyIcon className="size-3.5" />
+        </AuiIf>
+      </ActionBarPrimitive.Copy>
     </ActionBarPrimitive.Root>
   );
 };
 
 const ThreadScrollToBottom: FC = () => {
   return (
-    <ThreadPrimitive.ScrollToBottom render={<TooltipIconButton tooltip="Scroll to bottom" variant="outline" className="aui-thread-scroll-to-bottom dark:border-border dark:bg-background dark:hover:bg-accent absolute -top-12 z-10 self-center rounded-full p-4 disabled:invisible" />}><ArrowDownIcon /></ThreadPrimitive.ScrollToBottom>
+    <ThreadPrimitive.ScrollToBottom
+      render={
+        <TooltipIconButton
+          tooltip="Scroll to bottom"
+          variant="outline"
+          className="absolute -top-11 z-10 size-9 self-center rounded-full border-border/80 bg-background/95 p-0 shadow-sm backdrop-blur disabled:invisible"
+        />
+      }
+    >
+      <ArrowDownIcon className="size-4" />
+    </ThreadPrimitive.ScrollToBottom>
   );
 };
 
+/* =========================================================
+   WELCOME
+   ========================================================= */
+
 const ThreadWelcome: FC = () => {
   return (
-    <div className="aui-thread-welcome-root mb-6 flex flex-col px-2">
-      <p className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in fill-mode-both text-2xl font-medium tracking-tight duration-200">
-        How can I help you today?
+    <div className="aui-thread-welcome-root mx-auto flex w-full max-w-3xl flex-col px-1 pb-8">
+      <div className="mb-8 flex flex-col items-center text-center">
+        <div className="mb-5 flex size-12 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10 shadow-sm">
+          <WrenchIcon className="size-5 text-blue-400" />
+        </div>
+
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          What are you building today?
+        </h1>
+
+        <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground sm:text-base">
+          Your AI development partner for coding, debugging, architecture,
+          code review, and technical problem solving.
+        </p>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <WelcomeCapability
+          icon={<FileCode2Icon className="size-4" />}
+          title="Write & improve code"
+          description="Build components, APIs, functions and complete features."
+        />
+
+        <WelcomeCapability
+          icon={<WrenchIcon className="size-4" />}
+          title="Debug problems"
+          description="Find bugs, explain errors and fix broken implementations."
+        />
+
+        <WelcomeCapability
+          icon={<FolderGit2Icon className="size-4" />}
+          title="Design architecture"
+          description="Plan scalable frontend, backend and AI application systems."
+        />
+
+        <WelcomeCapability
+          icon={<LightbulbIcon className="size-4" />}
+          title="Learn faster"
+          description="Understand concepts with practical developer-focused explanations."
+        />
+      </div>
+    </div>
+  );
+};
+
+const WelcomeCapability: FC<{
+  icon: ReactNode;
+  title: string;
+  description: string;
+}> = ({ icon, title, description }) => {
+  return (
+    <div className="group rounded-xl border border-border/70 bg-card/30 p-4 transition-colors hover:border-border hover:bg-card/60">
+      <div className="mb-3 flex size-8 items-center justify-center rounded-lg border border-border/70 bg-muted/50 text-muted-foreground transition-colors group-hover:border-blue-500/20 group-hover:text-blue-400">
+        {icon}
+      </div>
+
+      <p className="text-sm font-medium text-foreground">{title}</p>
+
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        {description}
       </p>
     </div>
   );
 };
 
+/* =========================================================
+   SUGGESTIONS
+   ========================================================= */
+
 const ThreadSuggestions: FC = () => {
   return (
-    <div className="aui-thread-welcome-suggestions flex w-full flex-col">
+    <div className="grid w-full gap-2 pb-1 sm:grid-cols-2">
       <ThreadPrimitive.Suggestions>
         {() => <ThreadSuggestionItem />}
       </ThreadPrimitive.Suggestions>
@@ -382,37 +486,68 @@ const ThreadSuggestions: FC = () => {
 
 const ThreadSuggestionItem: FC = () => {
   return (
-    <div className="aui-thread-welcome-suggestion-display fade-in slide-in-from-bottom-2 animate-in fill-mode-both duration-200">
-      <SuggestionPrimitive.Trigger send render={<button type="button" className="aui-thread-welcome-suggestion group hover:bg-foreground/[0.03] focus-visible:ring-ring/50 flex w-full items-baseline gap-2.5 rounded-md px-2 py-2 text-start text-sm transition-colors outline-none focus-visible:ring-1 motion-reduce:transition-none" />}><span
-                      aria-hidden
-                      className="text-muted-foreground/60 group-hover:text-foreground font-mono text-xs transition-colors motion-reduce:transition-none"
-                    >
-                      {">"}
-                    </span><span className="min-w-0 flex-1 truncate">
-                      <SuggestionPrimitive.Title className="aui-thread-welcome-suggestion-text-1 text-foreground" />{" "}
-                      <SuggestionPrimitive.Description className="aui-thread-welcome-suggestion-text-2 text-muted-foreground empty:hidden" />
-                    </span></SuggestionPrimitive.Trigger>
+    <div className="fade-in slide-in-from-bottom-2 animate-in duration-200">
+      <SuggestionPrimitive.Trigger
+        send
+        render={
+          <button
+            type="button"
+            className="group flex min-h-[68px] w-full items-center gap-3 rounded-xl border border-border/70 bg-card/30 px-3.5 py-3 text-left transition-colors hover:border-border hover:bg-card/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+          />
+        }
+      >
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/50 text-muted-foreground transition-colors group-hover:border-blue-500/20 group-hover:text-blue-400">
+          <SparklesIcon className="size-3.5" />
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <SuggestionPrimitive.Title className="block truncate text-sm font-medium text-foreground" />
+
+          <SuggestionPrimitive.Description className="mt-0.5 block truncate text-xs text-muted-foreground empty:hidden" />
+        </span>
+
+        <ArrowUpIcon className="size-3.5 shrink-0 text-muted-foreground/50 transition-transform group-hover:-translate-y-0.5 group-hover:text-foreground" />
+      </SuggestionPrimitive.Trigger>
     </div>
   );
 };
 
+/* =========================================================
+   COMPOSER
+   ========================================================= */
+
 const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
-      <ComposerPrimitive.AttachmentDropzone render={<div data-slot="aui_composer-shell" className="border-foreground/10 focus-within:border-foreground/25 data-[dragging=true]:border-ring flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]" />}><ComposerAttachments /><ComposerPrimitive.Input
-                      placeholder="Send a message..."
-                      className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2.5 py-1 text-base leading-6 outline-none"
-                      rows={1}
-                      autoFocus={autoFocus}
-                      enterKeyHint="send"
-                      aria-label="Message input"
-                    /><ComposerAction /></ComposerPrimitive.AttachmentDropzone>
+      <ComposerPrimitive.AttachmentDropzone
+        render={
+          <div
+            data-slot="aui_composer-shell"
+            className="group flex w-full cursor-text flex-col gap-2 rounded-2xl border border-border/70 bg-card/40 p-[var(--composer-padding)] shadow-sm transition-[border-color,background-color,box-shadow] data-[dragging=true]:border-blue-500/50 data-[dragging=true]:border-dashed data-[dragging=true]:bg-blue-500/5"
+          />
+        }
+      >
+        <ComposerAttachments />
+
+       <ComposerPrimitive.Input
+  placeholder="Ask anything about your code..."
+  className="aui-composer-input caret-primary placeholder:text-muted-foreground/50 max-h-48 min-h-11 w-full resize-none border-0 bg-transparent px-2.5 py-1.5 text-[15px] leading-6 text-foreground outline-none ring-0 shadow-none focus:border-0 focus:outline-none focus:ring-0 focus:shadow-none focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-none"
+  rows={1}
+  autoFocus={autoFocus}
+  enterKeyHint="send"
+  aria-label="Message input"
+/>
+
+        <ComposerAction />
+      </ComposerPrimitive.AttachmentDropzone>
+
+      <p className="mt-2 hidden text-center text-[10px] text-muted-foreground/50 sm:block">
+        Enter to send · Shift + Enter for new line
+      </p>
     </ComposerPrimitive.Root>
   );
 };
-
 const ComposerAction: FC = () => {
-  // The stop control only cancels the send while no run it could stop is going.
   const isSending = useAuiState(
     (s) =>
       s.composer.submission !== undefined &&
@@ -420,17 +555,48 @@ const ComposerAction: FC = () => {
   );
 
   return (
-    <div className="aui-composer-action-wrapper relative flex items-center justify-between">
+    <div className="flex items-center justify-between">
       <ComposerAddAttachment />
+
       <div className="flex items-center gap-1.5">
         <AuiIf condition={(s) => s.thread.capabilities.dictation}>
           <AuiIf condition={(s) => s.composer.dictation == null}>
-            <ComposerPrimitive.Dictate render={<TooltipIconButton tooltip="Voice input" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full" aria-label="Start voice input" />}><MicIcon className="aui-composer-dictate-icon size-4" /></ComposerPrimitive.Dictate>
+            <ComposerPrimitive.Dictate
+              render={
+                <TooltipIconButton
+                  tooltip="Voice input"
+                  side="bottom"
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Start voice input"
+                />
+              }
+            >
+              <MicIcon className="size-4" />
+            </ComposerPrimitive.Dictate>
           </AuiIf>
+
           <AuiIf condition={(s) => s.composer.dictation != null}>
-            <ComposerPrimitive.StopDictation render={<TooltipIconButton tooltip="Stop dictation" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-stop-dictation text-destructive size-7 rounded-full" aria-label="Stop voice input" />}><SquareIcon className="aui-composer-stop-dictation-icon size-3.5 animate-pulse fill-current" /></ComposerPrimitive.StopDictation>
+            <ComposerPrimitive.StopDictation
+              render={
+                <TooltipIconButton
+                  tooltip="Stop dictation"
+                  side="bottom"
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-full text-red-400 hover:bg-red-500/10"
+                  aria-label="Stop voice input"
+                />
+              }
+            >
+              <SquareIcon className="size-3.5 animate-pulse fill-current" />
+            </ComposerPrimitive.StopDictation>
           </AuiIf>
         </AuiIf>
+
         <AuiIf
           condition={(s) =>
             !s.composer.canCancel ||
@@ -438,8 +604,23 @@ const ComposerAction: FC = () => {
               s.composer.submission === undefined)
           }
         >
-          <ComposerPrimitive.Send render={<TooltipIconButton tooltip="Send message" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full" aria-label="Send message" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
+          <ComposerPrimitive.Send
+            render={
+              <TooltipIconButton
+                tooltip="Send message"
+                side="bottom"
+                type="button"
+                variant="default"
+                size="icon"
+                className="size-8 rounded-full bg-blue-600 text-white shadow-sm hover:bg-blue-500"
+                aria-label="Send message"
+              />
+            }
+          >
+            <ArrowUpIcon className="size-4" />
+          </ComposerPrimitive.Send>
         </AuiIf>
+
         <AuiIf
           condition={(s) =>
             s.composer.canCancel &&
@@ -447,22 +628,44 @@ const ComposerAction: FC = () => {
               s.composer.submission !== undefined)
           }
         >
-          <ComposerPrimitive.Cancel render={<Button type="button" variant="default" size="icon" className="aui-composer-cancel size-7 rounded-full" aria-label={isSending ? "Cancel sending" : "Stop generating"} />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
+          <ComposerPrimitive.Cancel
+            render={
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                className="size-8 rounded-full bg-muted-foreground/80 text-background hover:bg-muted-foreground"
+                aria-label={
+                  isSending ? "Cancel sending" : "Stop generating"
+                }
+              />
+            }
+          >
+            <SquareIcon className="size-3.5 fill-current" />
+          </ComposerPrimitive.Cancel>
         </AuiIf>
       </div>
     </div>
   );
 };
 
+/* =========================================================
+   ERROR
+   ========================================================= */
+
 const MessageError: FC = () => {
   return (
     <MessagePrimitive.Error>
-      <ErrorPrimitive.Root className="aui-message-error-root border-destructive bg-destructive/10 text-destructive dark:bg-destructive/5 mt-2 rounded-md border p-3 text-sm dark:text-red-200">
-        <ErrorPrimitive.Message className="aui-message-error-message line-clamp-2" />
+      <ErrorPrimitive.Root className="mt-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-300">
+        <ErrorPrimitive.Message className="line-clamp-3" />
       </ErrorPrimitive.Root>
     </MessagePrimitive.Error>
   );
 };
+
+/* =========================================================
+   ASSISTANT MESSAGE
+   ========================================================= */
 
 const AssistantMessage: FC = () => {
   const {
@@ -471,101 +674,153 @@ const AssistantMessage: FC = () => {
     ReasoningGroup,
     TaskGroup: TaskGroupComponent,
   } = useContext(ThreadComponentsContext);
+
   const groupBy = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
 
   const ACTION_BAR_PT = "pt-1.5";
-  // Keep the action bar inside the contained root's paint box, then cancel its reserved space in flow.
   const ACTION_BAR_HEIGHT = `min-h-7.5 ${ACTION_BAR_PT}`;
 
   return (
     <MessagePrimitive.Root
       data-slot="aui_assistant-message-root"
       data-role="assistant"
-      className="fade-in slide-in-from-bottom-1 animate-in relative -mb-7.5 pb-7.5 duration-150 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
+      className="fade-in slide-in-from-bottom-1 animate-in relative pb-6 duration-150 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
     >
       <div
         data-slot="aui_assistant-message-content"
-        className="text-foreground px-2 leading-relaxed wrap-break-word"
+        className="text-foreground break-words"
       >
-        <MessagePrimitive.GroupedParts groupBy={groupBy}>
-          {({ part, children }) => {
-            switch (part.type) {
-              case "group-chainOfThought":
-                return <div data-slot="aui_chain-of-thought">{children}</div>;
-              case "group-task":
-                return TaskGroupComponent ? (
-                  <TaskGroupComponent group={part} />
-                ) : null;
-              case "group-tool":
-                if (ToolGroup) {
-                  return <ToolGroup group={part}>{children}</ToolGroup>;
-                }
-                return (
-                  <ToolGroupRoot variant="ghost">
-                    <ToolGroupTrigger
-                      count={part.indices.length}
-                      active={part.status.type === "running"}
-                    />
-                    <ToolGroupContent>{children}</ToolGroupContent>
-                  </ToolGroupRoot>
-                );
-              case "group-reasoning": {
-                if (ReasoningGroup) {
+        <div className="mb-3 flex items-center gap-2 px-1">
+          <div className="flex size-7 items-center justify-center rounded-lg border border-blue-500/20 bg-blue-500/10">
+            <SparklesIcon className="size-3.5 text-blue-400" />
+          </div>
+
+          <span className="text-xs font-semibold text-foreground/80">
+            Dev Assistant
+          </span>
+
+          <span className="size-1 rounded-full bg-muted-foreground/30" />
+
+          <span className="text-[10px] text-muted-foreground/60">
+            AI
+          </span>
+        </div>
+
+        <div className="px-1 leading-7">
+          <MessagePrimitive.GroupedParts groupBy={groupBy}>
+            {({ part, children }) => {
+              switch (part.type) {
+                case "group-chainOfThought":
                   return (
-                    <ReasoningGroup group={part}>{children}</ReasoningGroup>
+                    <div data-slot="aui_chain-of-thought">
+                      {children}
+                    </div>
+                  );
+
+                case "group-task":
+                  return TaskGroupComponent ? (
+                    <TaskGroupComponent group={part} />
+                  ) : null;
+
+                case "group-tool":
+                  if (ToolGroup) {
+                    return (
+                      <ToolGroup group={part}>{children}</ToolGroup>
+                    );
+                  }
+
+                  return (
+                    <ToolGroupRoot variant="ghost">
+                      <ToolGroupTrigger
+                        count={part.indices.length}
+                        active={part.status.type === "running"}
+                      />
+                      <ToolGroupContent>{children}</ToolGroupContent>
+                    </ToolGroupRoot>
+                  );
+
+                case "group-reasoning": {
+                  if (ReasoningGroup) {
+                    return (
+                      <ReasoningGroup group={part}>
+                        {children}
+                      </ReasoningGroup>
+                    );
+                  }
+
+                  const running = part.status.type === "running";
+
+                  return (
+                    <ReasoningRoot streaming={running}>
+                      <ReasoningTrigger active={running} />
+                      <ReasoningContent aria-busy={running}>
+                        <ReasoningText>{children}</ReasoningText>
+                      </ReasoningContent>
+                    </ReasoningRoot>
                   );
                 }
-                const running = part.status.type === "running";
-                return (
-                  <ReasoningRoot streaming={running}>
-                    <ReasoningTrigger active={running} />
-                    <ReasoningContent aria-busy={running}>
-                      <ReasoningText>{children}</ReasoningText>
-                    </ReasoningContent>
-                  </ReasoningRoot>
-                );
+
+                case "text":
+                  return <MarkdownText />;
+
+                case "reasoning":
+                  return <Reasoning {...part} />;
+
+                case "tool-call":
+                  return (
+                    part.toolUI ?? <ToolFallbackComponent {...part} />
+                  );
+
+                case "data":
+                  return part.dataRendererUI;
+
+                case "file":
+                  return (
+                    <div
+                      data-slot="aui_assistant-message-file"
+                      className="py-1"
+                    >
+                      <File {...part} />
+                    </div>
+                  );
+
+                case "image":
+                  return (
+                    <div
+                      data-slot="aui_assistant-message-image"
+                      className="py-1"
+                    >
+                      <Image {...part} />
+                    </div>
+                  );
+
+                case "indicator":
+                  return (
+                    <span
+                      data-slot="aui_assistant-message-indicator"
+                      className="ml-1 inline-flex animate-pulse text-blue-400"
+                      aria-label="Assistant is working"
+                    >
+                      ●
+                    </span>
+                  );
+
+                default:
+                  return null;
               }
-              case "text":
-                return <MarkdownText />;
-              case "reasoning":
-                return <Reasoning {...part} />;
-              case "tool-call":
-                return part.toolUI ?? <ToolFallbackComponent {...part} />;
-              case "data":
-                return part.dataRendererUI;
-              case "file":
-                return (
-                  <div data-slot="aui_assistant-message-file" className="py-1">
-                    <File {...part} />
-                  </div>
-                );
-              case "image":
-                return (
-                  <div data-slot="aui_assistant-message-image" className="py-1">
-                    <Image {...part} />
-                  </div>
-                );
-              case "indicator":
-                return (
-                  <span
-                    data-slot="aui_assistant-message-indicator"
-                    className="animate-pulse font-sans"
-                    aria-label="Assistant is working"
-                  >
-                    {"●"}
-                  </span>
-                );
-              default:
-                return null;
-            }
-          }}
-        </MessagePrimitive.GroupedParts>
+            }}
+          </MessagePrimitive.GroupedParts>
+        </div>
+
         <MessageError />
       </div>
 
       <div
         data-slot="aui_assistant-message-footer"
-        className={cn("ms-2 flex items-center", ACTION_BAR_HEIGHT)}
+        className={cn(
+          "ms-1 flex items-center",
+          ACTION_BAR_HEIGHT,
+        )}
       >
         <BranchPicker />
         <AssistantActionBar />
@@ -574,38 +829,104 @@ const AssistantMessage: FC = () => {
   );
 };
 
+/* =========================================================
+   ASSISTANT ACTIONS
+   ========================================================= */
+
 const AssistantActionBar: FC = () => {
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
       autohide="not-last"
-      className="aui-assistant-action-bar-root text-muted-foreground animate-in fade-in col-start-3 row-start-2 -ms-1 flex gap-1 duration-200"
+      className="flex gap-0.5 text-muted-foreground animate-in fade-in duration-200"
     >
-      <ActionBarPrimitive.Copy render={<TooltipIconButton tooltip="Copy" />}><AuiIf condition={(s) => s.message.isCopied}>
-                      <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
-                    </AuiIf><AuiIf condition={(s) => !s.message.isCopied}>
-                      <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
-                    </AuiIf></ActionBarPrimitive.Copy>
+      <ActionBarPrimitive.Copy
+        render={
+          <TooltipIconButton
+            tooltip="Copy"
+            className="size-7 rounded-md hover:bg-muted"
+          />
+        }
+      >
+        <AuiIf condition={(s) => s.message.isCopied}>
+          <CheckIcon className="size-3.5 text-emerald-400" />
+        </AuiIf>
+
+        <AuiIf condition={(s) => !s.message.isCopied}>
+          <CopyIcon className="size-3.5" />
+        </AuiIf>
+      </ActionBarPrimitive.Copy>
+
       <AuiIf condition={(s) => s.thread.capabilities.feedback}>
-        <ActionBarPrimitive.FeedbackPositive render={<TooltipIconButton tooltip="Helpful" className="data-[submitted=true]:bg-accent data-[submitted=true]:text-accent-foreground" />}><ThumbsUpIcon /></ActionBarPrimitive.FeedbackPositive>
-        <ActionBarPrimitive.FeedbackNegative render={<TooltipIconButton tooltip="Not helpful" className="data-[submitted=true]:bg-accent data-[submitted=true]:text-accent-foreground" />}><ThumbsDownIcon /></ActionBarPrimitive.FeedbackNegative>
+        <ActionBarPrimitive.FeedbackPositive
+          render={
+            <TooltipIconButton
+              tooltip="Helpful"
+              className="size-7 rounded-md hover:bg-muted data-[submitted=true]:bg-accent data-[submitted=true]:text-accent-foreground"
+            />
+          }
+        >
+          <ThumbsUpIcon className="size-3.5" />
+        </ActionBarPrimitive.FeedbackPositive>
+
+        <ActionBarPrimitive.FeedbackNegative
+          render={
+            <TooltipIconButton
+              tooltip="Not helpful"
+              className="size-7 rounded-md hover:bg-muted data-[submitted=true]:bg-accent data-[submitted=true]:text-accent-foreground"
+            />
+          }
+        >
+          <ThumbsDownIcon className="size-3.5" />
+        </ActionBarPrimitive.FeedbackNegative>
       </AuiIf>
-      <ActionBarPrimitive.Reload render={<TooltipIconButton tooltip="Refresh" />}><RefreshCwIcon /></ActionBarPrimitive.Reload>
+
+      <ActionBarPrimitive.Reload
+        render={
+          <TooltipIconButton
+            tooltip="Regenerate"
+            className="size-7 rounded-md hover:bg-muted"
+          />
+        }
+      >
+        <RefreshCwIcon className="size-3.5" />
+      </ActionBarPrimitive.Reload>
+
       <ActionBarMorePrimitive.Root>
-        <ActionBarMorePrimitive.Trigger render={<TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent" />}><MoreHorizontalIcon /></ActionBarMorePrimitive.Trigger>
+        <ActionBarMorePrimitive.Trigger
+          render={
+            <TooltipIconButton
+              tooltip="More"
+              className="size-7 rounded-md hover:bg-muted data-[state=open]:bg-accent"
+            />
+          }
+        >
+          <MoreHorizontalIcon className="size-3.5" />
+        </ActionBarMorePrimitive.Trigger>
+
         <ActionBarMorePrimitive.Content
           side="bottom"
           align="start"
           sideOffset={6}
-          className="aui-action-bar-more-content bg-popover text-popover-foreground data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:animate-out data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-xl border p-1.5"
+          className="z-50 min-w-[10rem] overflow-hidden rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-xl"
         >
-          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none" />}><DownloadIcon className="size-4" />Export as Markdown
-                              </ActionBarPrimitive.ExportMarkdown>
+          <ActionBarPrimitive.ExportMarkdown
+            render={
+              <ActionBarMorePrimitive.Item className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm outline-none transition-colors hover:bg-muted focus:bg-muted">
+                <DownloadIcon className="size-4 text-muted-foreground" />
+                Export as Markdown
+              </ActionBarMorePrimitive.Item>
+            }
+          />
         </ActionBarMorePrimitive.Content>
       </ActionBarMorePrimitive.Root>
     </ActionBarPrimitive.Root>
   );
 };
+
+/* =========================================================
+   USER MESSAGE
+   ========================================================= */
 
 const UserFilePart: FileMessagePartComponent = (part) => (
   <div data-slot="aui_user-message-file" className="py-1">
@@ -623,25 +944,29 @@ const UserMessage: FC = () => {
   return (
     <MessagePrimitive.Root
       data-slot="aui_user-message-root"
-      className="fade-in slide-in-from-bottom-1 animate-in grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] content-start gap-y-2 px-2 duration-150 [contain-intrinsic-size:auto_200px] [content-visibility:auto] [&:where(>*)]:col-start-2"
+      className="fade-in slide-in-from-bottom-1 animate-in flex w-full flex-col items-end gap-y-2 px-2 duration-150 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
       data-role="user"
     >
       <UserMessageAttachments />
 
-      <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
-        <div className="aui-user-message-content peer bg-muted text-foreground rounded-(--composer-radius) px-4 py-2 wrap-break-word empty:hidden">
+      <div className="aui-user-message-content-wrapper relative min-w-0 max-w-[90%] sm:max-w-[82%]">
+        <div className="aui-user-message-content peer max-w-full rounded-2xl border border-border/70 bg-muted px-4 py-2.5 text-[15px] leading-6 text-foreground shadow-sm break-words empty:hidden">
           <MessagePrimitive.Parts
-            components={{ File: UserFilePart, Image: UserImagePart }}
+            components={{
+              File: UserFilePart,
+              Image: UserImagePart,
+            }}
           />
         </div>
-        <div className="aui-user-action-bar-wrapper absolute start-0 top-1/2 -translate-x-full -translate-y-1/2 pe-2 peer-empty:hidden rtl:translate-x-full">
+
+        <div className="aui-user-action-bar-wrapper absolute start-0 top-1/2 -translate-x-full -translate-y-1/2 pe-2 opacity-0 transition-opacity group-hover:opacity-100 peer-empty:hidden rtl:translate-x-full">
           <UserActionBar />
         </div>
       </div>
 
       <BranchPicker
         data-slot="aui_user-branch-picker"
-        className="col-span-full col-start-1 -me-1 justify-end"
+        className="w-full justify-end"
       />
     </MessagePrimitive.Root>
   );
@@ -652,34 +977,70 @@ const UserActionBar: FC = () => {
     <ActionBarPrimitive.Root
       hideWhenRunning
       autohide="not-last"
-      className="aui-user-action-bar-root flex flex-col items-end"
+      className="flex flex-col items-end"
     >
-      <ActionBarPrimitive.Edit render={<TooltipIconButton tooltip="Edit" className="aui-user-action-edit" />}><PencilIcon /></ActionBarPrimitive.Edit>
+      <ActionBarPrimitive.Edit
+        render={
+          <TooltipIconButton
+            tooltip="Edit"
+            className="size-7 rounded-md hover:bg-muted"
+          />
+        }
+      >
+        <PencilIcon className="size-3.5" />
+      </ActionBarPrimitive.Edit>
     </ActionBarPrimitive.Root>
   );
 };
+
+/* =========================================================
+   EDIT COMPOSER
+   ========================================================= */
 
 const EditComposer: FC = () => {
   return (
     <MessagePrimitive.Root
       data-slot="aui_edit-composer-wrapper"
-      className="flex flex-col px-2 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
+      className="flex flex-col px-1"
     >
-      <ComposerPrimitive.Root className="aui-edit-composer-root border-foreground/10 focus-within:border-foreground/25 ms-auto flex w-full max-w-[85%] cursor-text flex-col rounded-(--composer-radius) border bg-(--composer-bg) transition-[border-color]">
+      <ComposerPrimitive.Root className="ms-auto flex w-full max-w-[90%] cursor-text flex-col rounded-2xl border border-border bg-card/70 transition-colors focus-within:border-border focus-within:ring-2 focus-within:ring-ring/10 sm:max-w-[82%]">
         <ComposerPrimitive.Input
-          className="aui-edit-composer-input text-foreground min-h-14 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-base outline-none"
+          className="min-h-14 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm leading-6 text-foreground outline-none"
           autoFocus
         />
-        <div className="aui-edit-composer-footer mx-2.5 mb-2.5 flex items-center gap-1.5 self-end">
-          <ComposerPrimitive.Cancel render={<Button variant="ghost" size="sm" className="h-8 px-3" />}>Cancel
-                              </ComposerPrimitive.Cancel>
-          <ComposerPrimitive.Send render={<Button size="sm" className="h-8 px-3" />}>Update
-                              </ComposerPrimitive.Send>
+
+        <div className="mx-2.5 mb-2.5 flex items-center gap-1.5 self-end">
+          <ComposerPrimitive.Cancel
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-lg px-3 text-muted-foreground hover:text-foreground"
+              />
+            }
+          >
+            Cancel
+          </ComposerPrimitive.Cancel>
+
+          <ComposerPrimitive.Send
+            render={
+              <Button
+                size="sm"
+                className="h-8 rounded-lg bg-blue-600 px-3 text-white hover:bg-blue-500"
+              />
+            }
+          >
+            Update
+          </ComposerPrimitive.Send>
         </div>
       </ComposerPrimitive.Root>
     </MessagePrimitive.Root>
   );
 };
+
+/* =========================================================
+   BRANCH PICKER
+   ========================================================= */
 
 const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
   className,
@@ -689,16 +1050,37 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
     <BranchPickerPrimitive.Root
       hideWhenSingleBranch
       className={cn(
-        "aui-branch-picker-root text-muted-foreground -ms-2 me-2 inline-flex items-center text-xs",
+        "-ms-1 me-2 inline-flex items-center text-xs text-muted-foreground",
         className,
       )}
       {...rest}
     >
-      <BranchPickerPrimitive.Previous render={<TooltipIconButton tooltip="Previous" />}><ChevronLeftIcon /></BranchPickerPrimitive.Previous>
-      <span className="aui-branch-picker-state font-medium">
-        <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
+      <BranchPickerPrimitive.Previous
+        render={
+          <TooltipIconButton
+            tooltip="Previous"
+            className="size-7 rounded-md hover:bg-muted"
+          />
+        }
+      >
+        <ChevronLeftIcon className="size-3.5" />
+      </BranchPickerPrimitive.Previous>
+
+      <span className="px-1 font-medium">
+        <BranchPickerPrimitive.Number /> /{" "}
+        <BranchPickerPrimitive.Count />
       </span>
-      <BranchPickerPrimitive.Next render={<TooltipIconButton tooltip="Next" />}><ChevronRightIcon /></BranchPickerPrimitive.Next>
+
+      <BranchPickerPrimitive.Next
+        render={
+          <TooltipIconButton
+            tooltip="Next"
+            className="size-7 rounded-md hover:bg-muted"
+          />
+        }
+      >
+        <ChevronRightIcon className="size-3.5" />
+      </BranchPickerPrimitive.Next>
     </BranchPickerPrimitive.Root>
   );
 };
